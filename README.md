@@ -8,6 +8,7 @@ Dump Il2Cpp unprotected executable ELF from process memory
 - Supports detection of ELF file headers
 - Supports guessing which is the correct ELF based on memory location
 - Supports automatic memory region merging
+- Supports dumping `global-metadata.dat` from memory
 
 ## Usage
 
@@ -19,13 +20,12 @@ Il2CppMemoryDumper.sh <package> [output=/sdcard/dump]
 
 - Output will be:
 ```
-[output]/[startOffset]_[package]_[memoryName].[so/dump]
+[output]/[startOffset]_[package]_[memoryName].[so/dump/dat]
 [output]/[package]_maps.txt
 ```
 
 ## To-Dos
 
-- Dump `global-metadata.dat` from memory
 - Check memory region permission
 
 ## Workaround

@@ -63,20 +63,21 @@ for memory in $mem_list; do
 	local end=$(echo $range | awk -F'-' '{print toupper($2)}')
 	local memName=$(echo $memory | awk -F'|' '{print $6}' | awk -F'/' '{print $NF}')
 	
-	if [[ $memName == "global-metadata.dat" ]]; then
-		metadataOffset=$offset
-		continue
+	local fileExt=
+	
+	if [[ $memName != "global-metadata.dat" ]]; then
+		dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;$offset" | bc) count=4 of="${out}/tmp" 2>/dev/null
+		
+		if [[ $(cat "${out}/tmp") == $(echo -ne "\x7F\x45\x4C\x46") ]]; then
+			if [[ $memName != "libil2cpp.so" ]]; then
+				fileExt=".so"
+			fi
+		else
+			fileExt=".dump"
+		fi
 	fi
 	
-	dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;$offset" | bc) count=4 of="${out}/tmp" 2>/dev/null
-	
-	if [[ $(cat "${out}/tmp") == $(echo -ne "\x7F\x45\x4C\x46") ]]; then
-		fileExt="so"
-	else
-		fileExt="dump"
-	fi
-	
-	local fileOut="${out}/${offset}_${package}_${memName}.${fileExt}"
+	local fileOut="${out}/${offset}_${package}_${memName}${fileExt}"
 	
 	if [[ $metadataOffset != "" ]] && [[ $(echo "ibase=16;(${metadataOffset}-${offset})<0" | bc) -ne 0 ]]; then
 		echo "- Dumping [$memName] $range... <- This might be the correct libil2cpp.so"
@@ -87,7 +88,12 @@ for memory in $mem_list; do
 	
 	dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${offset}/$HEX_PAGESIZE" | bc) count=$(echo "ibase=16;(${end}-${offset})/$HEX_PAGESIZE" | bc) of="$fileOut" 2>/dev/null
 	
-	if [[ $fileExt == "so" ]]; then
+	if [[ $memName == "global-metadata.dat" ]]; then
+		metadataOffset=$offset
+		continue
+	fi
+	
+	if [[ $fileExt == ".so" ]]; then
 		lastFile=$fileOut
 	else
 		if [[ $lastFile != "" ]]; then
