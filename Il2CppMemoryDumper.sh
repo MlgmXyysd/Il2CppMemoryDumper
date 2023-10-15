@@ -65,19 +65,23 @@ for memory in $mem_list; do
 	
 	local fileExt=
 	
-	if [[ $memName != "global-metadata.dat" ]]; then
+	if [[ $memName == "global-metadata.dat" ]]; then
+		fileExt="dat"
+	else
 		dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;$offset" | bc) count=4 of="${out}/tmp" 2>/dev/null
 		
 		if [[ $(cat "${out}/tmp") == $(echo -ne "\x7F\x45\x4C\x46") ]]; then
-			if [[ $memName != "libil2cpp.so" ]]; then
-				fileExt=".so"
-			fi
+			fileExt="so"
 		else
-			fileExt=".dump"
+			fileExt="dump"
 		fi
 	fi
 	
-	local fileOut="${out}/${offset}_${package}_${memName}${fileExt}"
+	local fileOut="${out}/${offset}_${package}_${memName}.${fileExt}"
+	
+	if [[ $memName == "global-metadata.dat" ]] || [[ $memName == "libil2cpp.so" && $fileExt == "so" ]]; then
+		fileOut="${out}/${offset}_${package}_${memName}"
+	fi
 	
 	if [[ $metadataOffset != "" ]] && [[ $(echo "ibase=16;(${metadataOffset}-${offset})<0" | bc) -ne 0 ]]; then
 		echo "- Dumping [$memName] $range... <- This might be the correct libil2cpp.so"
@@ -93,7 +97,7 @@ for memory in $mem_list; do
 		continue
 	fi
 	
-	if [[ $fileExt == ".so" ]]; then
+	if [[ $fileExt == "so" ]]; then
 		lastFile=$fileOut
 	else
 		if [[ $lastFile != "" ]]; then
