@@ -73,6 +73,41 @@ for memory in $mem_list; do
 		
 		if [[ $(cat "${out}/tmp") == $(echo -ne "\x7F\x45\x4C\x46") ]]; then
 			fileExt="so"
+			
+			local EI_CLASS="None"
+			dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;${offset}+4" | bc) count=1 of="${out}/tmp" 2>/dev/null
+			tmp=$(cat "${out}/tmp")
+			if [[ $tmp == $(echo -ne "\x01") ]]; then
+				EI_CLASS="32"
+			elif [[ $tmp == $(echo -ne "\x02") ]]; then
+				EI_CLASS="64"
+			fi
+			
+			local EI_DATA="None"
+			dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;${offset}+5" | bc) count=1 of="${out}/tmp" 2>/dev/null
+			tmp=$(cat "${out}/tmp")
+			if [[ $tmp == $(echo -ne "\x01") ]]; then
+				EI_DATA="LSB"
+			elif [[ $tmp == $(echo -ne "\x02") ]]; then
+				EI_DATA="MSB"
+			fi
+			
+			local E_TYPE="None"
+			dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;${offset}+F" | bc) count=2 of="${out}/tmp" 2>/dev/null
+			tmp=$(cat "${out}/tmp")
+			if [[ $tmp == $(echo -ne "\x01\x00") ]]; then
+				E_TYPE="Relocatable"
+			elif [[ $tmp == $(echo -ne "\x02\x00") ]]; then
+				E_TYPE="Executable"
+			elif [[ $tmp == $(echo -ne "\x03\x00") ]]; then
+				E_TYPE="Shared object"
+			elif [[ $tmp == $(echo -ne "\x04\x00") ]]; then
+				E_TYPE="Core"
+			else
+				E_TYPE="Processor-specific"
+			fi
+			
+			echo "- ELF ${EI_CLASS}-Bit $E_TYPE (${EI_DATA} Encoding) was found at ${offset}, starting dump..."
 		else
 			fileExt="dump"
 		fi

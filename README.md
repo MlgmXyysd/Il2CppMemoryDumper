@@ -9,6 +9,7 @@ Dump Il2Cpp unprotected executable ELF from process memory
 - Supports guessing which is the correct ELF based on memory location
 - Supports automatic memory region merging
 - Supports dumping `global-metadata.dat` from memory
+- Supports ELF file headers analysis
 
 ## Usage
 
