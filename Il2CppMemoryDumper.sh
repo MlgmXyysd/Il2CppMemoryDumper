@@ -61,6 +61,7 @@ for memory in $mem_list; do
 	local range=$(echo $memory | awk -F'|' '{print $1}')
 	local offset=$(echo $range | awk -F'-' '{print toupper($1)}')
 	local end=$(echo $range | awk -F'-' '{print toupper($2)}')
+	local memIndicator=$(echo $memory | awk -v OFS=',' -F'|' '{print $4,$5}')
 	local memName=$(echo $memory | awk -F'|' '{print $6}' | awk -F'/' '{print $NF}')
 	
 	local fileExt=
@@ -90,12 +91,12 @@ for memory in $mem_list; do
 		echo "- Dumping [$memName] $range..."
 	fi
 	
-	dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${offset}/$HEX_PAGESIZE" | bc) count=$(echo "ibase=16;(${end}-${offset})/$HEX_PAGESIZE" | bc) of="$fileOut" 2>/dev/null
-	
 	if [[ $memName == "global-metadata.dat" ]]; then
 		metadataOffset=$offset
 		continue
 	fi
+	
+	dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${offset}/$HEX_PAGESIZE" | bc) count=$(echo "ibase=16;(${end}-${offset})/$HEX_PAGESIZE" | bc) of="$fileOut" 2>/dev/null
 	
 	if [[ $fileExt == "so" ]]; then
 		lastFile=$fileOut
@@ -111,14 +112,20 @@ for memory in $mem_list; do
 					lastFile=$fileOut
 					
 					echo "- Patching last dump..."
-					offset=$(grep "${lastEnd}-" "$out/${package}_maps.txt" | awk '{print $1}' | awk -F'-' '{print toupper($2)}')
-					gap_block=$(echo "ibase=16;(${offset}-${lastEnd})/${HEX_PAGESIZE}" | bc)
-					if [[ $gap_block -gt $SYS_PAGESIZE ]]; then
-						echo "- Next region $gap_block is too large, skipping patch..."
+					memory=$(grep -i "${lastEnd}-" "/proc/$pid/maps")
+					offset=$(echo $memory | awk '{print $1}' | awk -F'-' '{print toupper($2)}')
+					local patchIndicator=$(echo $memory | awk -v OFS=',' '{print $4,$5}')
+					if [[ $patchIndicator != $memIndicator ]] && [[ $patchIndicator != "00:00,0" ]]; then
+						echo "- Inconsistent memory files found, skipping patch..."
 					else
-						echo "- Adding $gap_block blocks..."
-						dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${lastEnd}/$HEX_PAGESIZE" | bc) count=$gap_block of="$out/tmp" 2>/dev/null
-						cat "$out/tmp">>"$lastFile"
+						gap_block=$(echo "ibase=16;(${offset}-${lastEnd})/${HEX_PAGESIZE}" | bc)
+						if [[ $gap_block -gt $SYS_PAGESIZE ]]; then
+							echo "- Next region $gap_block is too large, skipping patch..."
+						else
+							echo "- Adding $gap_block blocks..."
+							dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${lastEnd}/$HEX_PAGESIZE" | bc) count=$gap_block of="$out/tmp" 2>/dev/null
+							cat "$out/tmp">>"$lastFile"
+						fi
 					fi
 				else
 					echo "- Adding $gap_block gap blocks..."
