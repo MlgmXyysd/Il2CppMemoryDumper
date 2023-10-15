@@ -104,11 +104,22 @@ for memory in $mem_list; do
 			echo "- Merging memory..."
 			skipMerge=false
 			if [[ $lastEnd != $offset ]]; then
-				gap_block=$(echo "ibase=16;(${offset}-${lastEnd})/${HEX_PAGESIZE}" | bc)
-				if [[ $gap_block -gt 32 ]]; then
+				local gap_block=$(echo "ibase=16;(${offset}-${lastEnd})/${HEX_PAGESIZE}" | bc)
+				if [[ $gap_block -gt $SYS_PAGESIZE ]]; then
 					echo "- Gap blocks $gap_block is too large, skipping merge..."
 					skipMerge=true
 					lastFile=$fileOut
+					
+					echo "- Patching last dump..."
+					offset=$(grep "${lastEnd}-" "$out/${package}_maps.txt" | awk '{print $1}' | awk -F'-' '{print toupper($2)}')
+					gap_block=$(echo "ibase=16;(${offset}-${lastEnd})/${HEX_PAGESIZE}" | bc)
+					if [[ $gap_block -gt $SYS_PAGESIZE ]]; then
+						echo "- Next region $gap_block is too large, skipping patch..."
+					else
+						echo "- Adding $gap_block blocks..."
+						dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${lastEnd}/$HEX_PAGESIZE" | bc) count=$gap_block of="$out/tmp" 2>/dev/null
+						cat "$out/tmp">>"$lastFile"
+					fi
 				else
 					echo "- Adding $gap_block gap blocks..."
 					dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${lastEnd}/$HEX_PAGESIZE" | bc) count=$gap_block of="$out/tmp" 2>/dev/null
