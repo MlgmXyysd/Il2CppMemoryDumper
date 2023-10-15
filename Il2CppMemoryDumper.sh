@@ -133,6 +133,11 @@ for memory in $mem_list; do
 	
 	dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${offset}/$HEX_PAGESIZE" | bc) count=$(echo "ibase=16;(${end}-${offset})/$HEX_PAGESIZE" | bc) of="$fileOut" 2>/dev/null
 	
+	if [[ $? -ne 0 ]]; then
+		echo "* Failed to dump memory $range, skipping..."
+		continue
+	fi
+	
 	if [[ $fileExt == "so" ]]; then
 		lastFile=$fileOut
 	else
