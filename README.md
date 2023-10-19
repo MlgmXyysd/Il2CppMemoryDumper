@@ -27,7 +27,7 @@ Il2CppMemoryDumper.sh <package> [output=/sdcard/dump]
 
 ## To-Dos
 
-- Check memory region permission
+- Nothing to do
 
 ## Workaround
 
@@ -37,7 +37,7 @@ Il2CppMemoryDumper.sh <package> [output=/sdcard/dump]
 ## What's the next step?
 
 - Fix dumped ELF using [SoFixer](https://github.com/F8LEFT/SoFixer)
-- Dump Method and StringLiteral using [Il2CppDumper](https://github.com/Perfare/Il2CppDumper)
+- Dump Method and StringLiteral using [Il2CppDumper](https://github.com/Perfare/Il2CppDumper), you can download standalone execueable for Linux (x64, arm, arm64), MacOS (x64, arm64), WoA (arm, arm64) in [Il2CppDumper-Standalone](https://github.com/MlgmXyysd/Il2CppDumper-Standalone)
 
 ## Credits
 
