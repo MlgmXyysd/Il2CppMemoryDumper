@@ -138,6 +138,17 @@ for memory in $mem_list; do
 		continue
 	fi
 	
+	memory=$(grep -i "${end}-" "/proc/$pid/maps" | grep "\[anon:.bss]")
+	if [[ $memory != "" ]]; then
+		range=$(echo $memory | awk '{print $1}')
+		offset=$end
+		end=$(echo $range | awk -F'-' '{print toupper($2)}')
+		bss_block=$(echo "ibase=16;(${end}-${offset})/${HEX_PAGESIZE}" | bc)
+		echo "- Adding [anonymous:.bss] $range..."
+		dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${lastEnd}/$HEX_PAGESIZE" | bc) count=$bss_block of="$out/tmp" 2>/dev/null
+		cat "$out/tmp">>"$fileOut"
+	fi
+	
 	if [[ $fileExt == "so" ]]; then
 		lastFile=$fileOut
 	else
