@@ -39,9 +39,9 @@ Il2CppMemoryDumper.sh <package> [output=/sdcard/dump]
 
 ## What's the next step?
 
-- Check the version of Il2Cpp metadata. Since `Il2Cpp_ASSERT` is not valid for Release versions, some games may scramble the Il2Cpp version, which can cause a failure to dump.
+- Check the version of Il2Cpp metadata. Since `IL2CPP_ASSERT` is not valid for Release versions, some games may scramble the metadata version, which can cause a failure to dump.
 - Fix dumped ELF using [SoFixer](https://github.com/F8LEFT/SoFixer) (or other repair methods).
-- Dump Method and StringLiteral using [Il2CppDumper](https://github.com/MlgmXyysd/Il2CppDumper-Standalone). It contains the latest source code compilation (supporting Il2Cpp 29), you also can download standalone execueable for Linux (x64, arm, arm64), MacOS (x64, arm64), WoA (arm, arm64) in it.
+- Dump Method and StringLiteral using [Il2CppDumper](https://github.com/MlgmXyysd/Il2CppDumper-Standalone). It contains the latest source code compilation (supporting IL2CPP 29), you also can download standalone execueable for Linux (x64, arm, arm64), MacOS (x64, arm64), WoA (arm, arm64) in it.
 
 ## License
 
