@@ -33,7 +33,7 @@ fi
 
 echo "- Found target process: $pid"
 
-targets="global-metadata.dat libil2cpp.so "$(getprop ro.product.cpu.abilist | awk -F',' '{for (i = 1; i <= NF; i++) {gsub(/-/, "_"); print "split_config."$i".apk"}}')
+targets="/dev/zero global-metadata.dat libil2cpp.so "$(getprop ro.product.cpu.abilist | awk -F',' '{for (i = 1; i <= NF; i++) {gsub(/-/, "_"); print "split_config."$i".apk"}}')
 
 for target in $targets; do
 	local maps=$(grep $target /proc/$pid/maps | awk -v OFS='|' '{for (i = 1; i <= NF; i+=6) {print $i,$(i+1),$(i+2),$(i+3),$(i+4),$(i+5)}}')
@@ -59,18 +59,51 @@ metadataOffset=
 
 for memory in $mem_list; do
 	local range=$(echo $memory | awk -F'|' '{print $1}')
+	
+	if [[ $range == "(deleted)" ]]; then
+		continue
+	fi
+	
 	local offset=$(echo $range | awk -F'-' '{print toupper($1)}')
 	local end=$(echo $range | awk -F'-' '{print toupper($2)}')
 	local memIndicator=$(echo $memory | awk -v OFS=',' -F'|' '{print $4,$5}')
-	local memName=$(echo $memory | awk -F'|' '{print $6}' | awk -F'/' '{print $NF}')
+	local memPath=$(echo $memory | awk -F'|' '{print $6}')
+	local memName=$(echo $memPath | awk -F'/' '{print $NF}')
 	
-	local fileExt=
+	local fileExt="bin"
+	
+	if [[ $memName == "zero" ]]; then
+		memName="global-metadata.dat"
+	fi
+	
+	dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;$offset" | bc) count=4 of="${out}/tmp" 2>/dev/null
 	
 	if [[ $memName == "global-metadata.dat" ]]; then
-		fileExt="dat"
-	else
-		dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;$offset" | bc) count=4 of="${out}/tmp" 2>/dev/null
+		if [[ $(cat "${out}/tmp") == $(echo -ne "\xAF\x1B\xB1\xFA") ]]; then
+			METADATA_SANITY_MATCHED=true
+		fi
 		
+		dd if="/proc/$pid/mem" bs=1 skip=$(echo "ibase=16;${offset}+4" | bc) count=4 of="${out}/tmp" 2>/dev/null
+		local METADATA_VERSION=$(echo "ibase=16;$(cat "${out}/tmp" | xxd -e | awk -F' ' '{print $2}')" | bc)
+		if [[ $METADATA_VERSION -lt 100 ]]; then
+			METADATA_VERSION_VAILDATED=true
+		fi
+		
+		if [[ $METADATA_VERSION_VAILDATED == "true" ]]; then
+			fileExt="dat"
+			
+			if [[ $METADATA_SANITY_MATCHED == "true" ]]; then
+				echo "- Il2Cpp metadata version ${METADATA_VERSION} was found at ${offset}, starting dump..."
+			else
+				echo "- Il2Cpp metadata version ${METADATA_VERSION} at offset ${offset} sanity mismatch, trying to dump..."
+			fi
+		else
+			if [[ $memPath == "/dev/zero" ]]; then
+				memName="zero"
+			fi
+			echo "- Illegal version of Il2Cpp (${METADATA_VERSION}) at offset ${offset}, trying to dump as binary file..."
+		fi
+	else
 		if [[ $(cat "${out}/tmp") == $(echo -ne "\x7F\x45\x4C\x46") ]]; then
 			fileExt="so"
 			
@@ -108,8 +141,6 @@ for memory in $mem_list; do
 			fi
 			
 			echo "- ELF ${EI_CLASS}-Bit $E_TYPE (${EI_DATA} Encoding) was found at ${offset}, starting dump..."
-		else
-			fileExt="dump"
 		fi
 	fi
 	
@@ -122,6 +153,8 @@ for memory in $mem_list; do
 	if [[ $metadataOffset != "" ]] && [[ $(echo "ibase=16;(${metadataOffset}-${offset})<0" | bc) -ne 0 ]]; then
 		echo "- Dumping [$memName] $range... <- This might be the correct libil2cpp.so"
 		metadataOffset=
+	elif [[ $memPath == "/dev/zero" ]] && [[ $memName == "global-metadata.dat" ]]; then
+		echo "- Dumping [$memName] $range... <- This metadata might be the decrypted"
 	else
 		echo "- Dumping [$memName] $range..."
 	fi
@@ -129,6 +162,12 @@ for memory in $mem_list; do
 	dd if="/proc/$pid/mem" bs=$SYS_PAGESIZE skip=$(echo "ibase=16;${offset}/$HEX_PAGESIZE" | bc) count=$(echo "ibase=16;(${end}-${offset})/$HEX_PAGESIZE" | bc) of="$fileOut" 2>/dev/null
 	
 	if [[ $memName == "global-metadata.dat" ]]; then
+		if [[ $METADATA_SANITY_MATCHED != "true" ]] && [[ $METADATA_VERSION_VAILDATED == "true" ]]; then
+			echo "- Trying to fix metadata sanity..."
+			dd if="$fileOut" of="${out}/tmp" bs=1 count=4 2>/dev/null
+			echo "- Original header: $(cat "${out}/tmp" | xxd -p)"
+			echo -ne "\xAF\x1B\xB1\xFA" | dd of="$fileOut" count=4 conv=notrunc 2>/dev/null
+		fi
 		metadataOffset=$offset
 		continue
 	fi
